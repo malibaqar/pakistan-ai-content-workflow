@@ -1,0 +1,24 @@
+services:
+  n8n:
+    environment:
+      N8N_HOST: ${PUBLIC_HOST:?Set PUBLIC_HOST to your real DNS hostname}
+      N8N_PROTOCOL: https
+      N8N_EDITOR_BASE_URL: https://${PUBLIC_HOST}
+      WEBHOOK_URL: https://${PUBLIC_HOST}/
+      N8N_SECURE_COOKIE: "true"
+      N8N_PROXY_HOPS: "1"
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?Set PUBLIC_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  caddy_data:
+  caddy_config:

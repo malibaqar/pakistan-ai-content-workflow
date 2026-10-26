@@ -1,0 +1,188 @@
+{
+  "name": "Pakistan AI \u2014 publish approved queue",
+  "nodes": [
+    {
+      "id": "publication-slots",
+      "name": "Publication slots",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        200
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 12,19 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "reserve-post",
+      "name": "Reserve post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        220,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://worker:8787/claim",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Editorial worker"
+        }
+      }
+    },
+    {
+      "id": "ready",
+      "name": "Ready",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "ready",
+              "leftValue": "={{ $json.ready }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "publish-to-linkedin",
+      "name": "Publish to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [
+        680,
+        200
+      ],
+      "parameters": {
+        "resource": "post",
+        "operation": "create",
+        "postAs": "person",
+        "person": "REPLACE_WITH_YOUR_LINKEDIN_PERSON_ID",
+        "text": "={{ $json.text }}",
+        "additionalFields": {}
+      },
+      "credentials": {
+        "linkedInOAuth2Api": {
+          "name": "LinkedIn account"
+        }
+      },
+      "retryOnFail": false
+    },
+    {
+      "id": "record-receipt",
+      "name": "Record receipt",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        920,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "http://worker:8787/receipt",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "timeout": 30000
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ id: $(\"Reserve post\").item.json.id, claim_token: $(\"Reserve post\").item.json.claim_token, receipt: $json.id || $json.urn || $json[\"x-restli-id\"] || \"\" }) }}"
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "name": "Editorial worker"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Publication slots": {
+      "main": [
+        [
+          {
+            "node": "Reserve post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reserve post": {
+      "main": [
+        [
+          {
+            "node": "Ready",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ready": {
+      "main": [
+        [
+          {
+            "node": "Publish to LinkedIn",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Publish to LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Record receipt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Karachi"
+  },
+  "pinData": {},
+  "tags": []
+}
